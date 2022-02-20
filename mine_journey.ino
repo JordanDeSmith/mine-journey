@@ -12,7 +12,8 @@ byte state = SETUP;
 Timer endTimer;
 
 ////Colors////
-
+Color northColor = GREEN;
+Color emptyColor = dim(WHITE, 255/4);
 
 ////Parents and children for map propogation////
 const byte NO_PARENT = 6;
@@ -23,6 +24,7 @@ bool isSending = false;
 
 ////Map////
 byte north = 0;
+bool isNorthYellow = false;
 byte location[2];
 const byte MAP_HEIGHT = 16;
 const byte MAP_WIDTH = 16;
@@ -226,9 +228,10 @@ void disconnectedLoop() {
     state = CONNECTED;
     if (!((0 <= location[0] && location[0] < MAP_WIDTH) && (0 <= location[1] && location[1] < MAP_HEIGHT))) {
       setColor(OFF);
+      setColorOnFace(northColor, north);
       return;
     }
-    else {setColor(dim(WHITE, 255/4));}
+    else {setColor(emptyColor);}
     Color flashColor = YELLOW;
     byte space = mineMap[location[1]][location[0]];
     if (space == EMPTY) {
@@ -257,8 +260,12 @@ void disconnectedLoop() {
       if ((location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
         ++mineCount;
       }
+      isNorthYellow = false;
       for (byte i = 0; i < mineCount; i++) {
         setColorOnFace(flashColor, i);
+        if (i == north) {
+          isNorthYellow = true;
+        }
       }
     }
     else if (space == END) {
@@ -274,6 +281,17 @@ void connectedLoop() {
   //TODO: Make an indication that reset is about to happen
   if (buttonLongPressed()) {
     gameEnd(false);
+  }
+
+  if (buttonPressed()) {
+    setColorOnFace(northColor, north);
+  }
+  if (buttonReleased()) {
+    Color revertColor = emptyColor;
+    if (isNorthYellow) {
+      revertColor = YELLOW;
+    }
+    setColorOnFace(revertColor, north);
   }
   
   //Listen for end signal
