@@ -7,7 +7,7 @@
 #define TIMER_LENGTH 2000
 
 ////data////
-enum Data {SETUP = 17, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY, RESTART, WON, LOST, EMPTY, MINE, END, START, PLAYING};
+enum Data {SETUP = 17, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY, WON, LOST, EMPTY, MINE, END, START, PLAYING};
 byte state = SETUP;
 Timer endTimer;
 
@@ -215,6 +215,10 @@ void standbyLoop() {
 ////////////////////
 
 void disconnectedLoop() {
+  if (buttonLongPressed()) {
+    gameEnd(false);
+  }
+  
   //Check if we have a location signal
   flashColorOnFace(CYAN, 6);
   if (getLocation()) {
@@ -258,49 +262,28 @@ void disconnectedLoop() {
       }
     }
     else if (space == END) {
-      setValueSentOnAllFaces(VICTORY);
-      endTimer.set(TIMER_LENGTH);
-      state = VICTORY;
+      gameEnd(true);
     }
     else if (space == MINE) {
-      setValueSentOnAllFaces(GAME_OVER);
-      endTimer.set(TIMER_LENGTH);
-      state = GAME_OVER;
+      gameEnd(false);
     }
   }
 }
 
 void connectedLoop() {
-  if (buttonDoubleClicked()) {
-    setValueSentOnAllFaces(RESTART);
-    bool neighborsReset = true;
-    FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != RESTART && getLastValueReceivedOnFace(f) != SETUP) {
-        neighborsReset = false;
-        break;
-      }
-    }
-    if (neighborsReset) {
-      state = SETUP;
-      setValueSentOnAllFaces(state);
-    }
+  //TODO: Make an indication that reset is about to happen
+  if (buttonLongPressed()) {
+    gameEnd(false);
   }
   
   //Listen for end signal
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f)) {
       if (getLastValueReceivedOnFace(f) == GAME_OVER) {
-        setValueSentOnAllFaces(GAME_OVER);
-        endTimer.set(TIMER_LENGTH);
-        state = GAME_OVER;
+        gameEnd(false);
       }
       else if (getLastValueReceivedOnFace(f) == VICTORY) {
-        setValueSentOnAllFaces(VICTORY);
-        endTimer.set(TIMER_LENGTH);
-        state = VICTORY;
-      }
-      else if (getLastValueReceivedOnFace(f) == RESTART) {
-        //TODO: Trigger restart
+        gameEnd(true);
       }
     }
   }
@@ -410,4 +393,15 @@ void flashColorOnFace(Color color, byte f) {
   else {
     setColorOnFace(dim(color, dimness), f);
   }
+}
+
+void gameEnd(bool won) {
+  if (won) {
+    state = VICTORY;
+  }
+  else {
+    state = GAME_OVER;
+  }
+  setValueSentOnAllFaces(state);
+  endTimer.set(TIMER_LENGTH);
 }
