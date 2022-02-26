@@ -13,52 +13,40 @@
 #define READY_GREEN makeColorRGB(0, 140, 0)
 #define EMPTY_COLOR dim(WHITE, 255/4)
 #define MINE_INDICATOR_COLOR YELLOW
-#define MAP_HEIGHT 16
-#define MAP_WIDTH 16
-#define MINE_MAX 30
+#define MAP_HEIGHT 20
+#define MAP_WIDTH 10
+#define MINE_MAX 45
 
 ////data////
 enum Data {SETUP = 50, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY, WON, LOST, EMPTY, MINE, END, START, PLAYING};
 static byte state = SETUP;
 static Timer endTimer;
 
-////Parents and children for map propogation////
+////Data for map propogation////
 static byte parentFace = NO_PARENT;
 static byte sendingFace = 0;
 static bool isSending = false;
+static byte currentMine = 0;
 
 ////Map////
 static byte north = 0;
 static byte mineCount = 0;
 static byte mineIndicatorFace = 0;
-bool isEdge = false;
 static Timer spinTimer;
+bool isEdge = false;
 static char location[2];
 static byte mineMap[MINE_MAX][2];
-/*static byte mineMap[MAP_HEIGHT][MAP_WIDTH] = {
-    {EMPTY, MINE, EMPTY, MINE, EMPTY, MINE, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY},
-    {EMPTY, EMPTY, MINE, EMPTY, EMPTY, MINE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, END, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, MINE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY, EMPTY, MINE, EMPTY, MINE},
-    {EMPTY, EMPTY, MINE, EMPTY, EMPTY, EMPTY, MINE, EMPTY, MINE, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY, EMPTY, MINE, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, MINE, MINE, EMPTY, MINE, MINE, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY, MINE, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY, MINE, EMPTY, EMPTY, EMPTY, EMPTY},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, MINE, EMPTY, EMPTY, EMPTY, EMPTY, MINE},
-    {EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, START, EMPTY, EMPTY, MINE}
-  };*/
-static byte currentMine = 0;
 
+
+
+
+
+////Setup function////
 void setup() {
   randomize(); //Seed random generator
 }
 
+////Main loop////
 void loop() {
   switch(state) {
     case SETUP:
@@ -104,80 +92,23 @@ void loop() {
   buttonDoubleClicked(); //Resets double click flag, just in case
 }
 
+
+
+
 /////////////////////
 ///////Setup/////////
 /////////////////////
 
 void createMap() {
-  //Randomly decide where the start and end are
   //Randomly place out mines in other spaces
-  //Need to determine where current blink is, and make sure no others are where a bomb would be...  
-  mineMap[0][0] = 1;
-  mineMap[0][1] = 15;
-  mineMap[1][0] = 3;
-  mineMap[1][1] = 15;
-  mineMap[2][0] = 5;
-  mineMap[2][1] = 15;
-  mineMap[3][0] = 10;
-  mineMap[3][1] = 15;
-  mineMap[4][0] = 2;
-  mineMap[4][1] = 14;
-  mineMap[5][0] = 5;
-  mineMap[5][1] = 14;
-
-  mineMap[6][0] = 6;
-  mineMap[6][1] = 8;
-  mineMap[7][0] = 9;
-  mineMap[7][1] = 8;
-  mineMap[8][0] = 11;
-  mineMap[8][1] = 8;
-
-  mineMap[9][0] = 2;
-  mineMap[9][1] = 7;
-  mineMap[10][0] = 6;
-  mineMap[10][1] = 7;
-  mineMap[11][0] = 8;
-  mineMap[11][1] = 7;
-
-  mineMap[12][0] = 7;
-  mineMap[12][1] = 6;
-  mineMap[13][0] = 10;
-  mineMap[13][1] = 6;
-
-  mineMap[14][0] = 2;
-  mineMap[14][1] = 4;
-  mineMap[15][0] = 3;
-  mineMap[15][1] = 4;
-  mineMap[16][0] = 5;
-  mineMap[16][1] = 4;
-  mineMap[17][0] = 6;
-  mineMap[17][1] = 4;
-
-  mineMap[18][0] = 6;
-  mineMap[18][1] = 3;
-  mineMap[19][0] = 8;
-  mineMap[19][1] = 3;
-
-
-  mineMap[20][0] = 5;
-  mineMap[20][1] = 2;
-  mineMap[21][0] = 5;
-  mineMap[21][1] = 2;
-
-  mineMap[22][0] = 6;
-  mineMap[22][1] = 1;
-  mineMap[23][0] = 11;
-  mineMap[23][1] = 1;
-
-  mineMap[24][0] = 11;
-  mineMap[24][1] = 0;
-
-  mineMap[25][0] = 13;
-  mineMap[25][1] = 15;
-  mineMap[26][0] = 14;
-  mineMap[26][1] = 9;
-  mineMap[27][0] = 14;
-  mineMap[27][1] = 5;
+  for (byte i = 0; i < MINE_MAX; ++i) {
+    mineMap[i][0] = random(MAP_WIDTH - 1);
+    mineMap[i][1] = random(MAP_HEIGHT - 1);
+    if (((mineMap[i][0] == (MAP_WIDTH / 2)) && ((mineMap[i][1] == 0) || (mineMap[i][1] == 1))) || 
+          (mineMap[i][1] == 0 && ((mineMap[i][0] == (MAP_WIDTH/2) + 1)|| (mineMap[i][0] == (MAP_WIDTH/2) - 1)))){ //Mine at the start space, try again.
+      --i;
+    }
+  }
 }
 
 void sendingLoop() {
@@ -246,8 +177,8 @@ void receivingLoop() {
 }
 
 void readyLoop() {
-  location[0] = 0;
-  location[1] = 0;
+  location[0] = -1;
+  location[1] = -1;
   //If master, tell all to begin game by sending location data
   if (parentFace == MASTER) {
     location[0] = MAP_WIDTH/2;
@@ -270,6 +201,7 @@ void readyLoop() {
 }
 
 void standbyLoop() {
+  //TODO: Only start if this blink has 3 consecutive open sides. Make north the middle of the three. 
   //Wait for starting press
   if (buttonDoubleClicked()) {
     createMap();
@@ -331,22 +263,22 @@ void disconnectedLoop() {
         rowModifier = -1;
       }
       for (byte i = 0; i < MINE_MAX; ++i) {
-        if (location[0] == mineMap[i][0] && location[1] - 1 == mineMap[i][1]) {//location[1] - 1 >= 0 && mineMap[location[1] - 1][location[0]] == MINE) {
+        if (location[0] == mineMap[i][0] && (location[1] - 1) == mineMap[i][1]) {//location[1] - 1 >= 0 && mineMap[location[1] - 1][location[0]] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] && location[1] + 1 == mineMap[i][1]) {//location[1] + 1 < MAP_HEIGHT && mineMap[location[1] + 1][location[0]] == MINE) {
+        else if (location[0] == mineMap[i][0] && (location[1] + 1) == mineMap[i][1]) {//location[1] + 1 < MAP_HEIGHT && mineMap[location[1] + 1][location[0]] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] - 1 && location[1] == mineMap[i][1]) {//location[0] - 1 >= 0 && mineMap[location[1]][location[0] - 1] == MINE) {
+        else if (location[0] == (mineMap[i][0] - 1) && location[1] == mineMap[i][1]) {//location[0] - 1 >= 0 && mineMap[location[1]][location[0] - 1] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] + 1 && location[1] == mineMap[i][1]) {//location[0] + 1 < MAP_HEIGHT && mineMap[location[1]][location[0] + 1] == MINE) {
+        else if (location[0] == (mineMap[i][0] + 1) && location[1] == mineMap[i][1]) {//location[0] + 1 < MAP_HEIGHT && mineMap[location[1]][location[0] + 1] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] - 1 && location[1] + rowModifier == mineMap[i][1]) {//(location[0] - 1 >= 0) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] - 1] == MINE)) {
+        else if (location[0] == (mineMap[i][0] - 1) && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] - 1 >= 0) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] - 1] == MINE)) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] + 1 && location[1] + rowModifier == mineMap[i][1]) {//(location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
+        else if (location[0] == (mineMap[i][0] + 1) && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
           ++mineCount;
         }
       }
@@ -403,6 +335,7 @@ void gameEndLoop(bool won) {
   mineCount = 0;
   mineIndicatorFace = 0;
   isSending = false;
+  parentFace = NO_PARENT;
   FOREACH_FACE(f) {
     markDatagramReadOnFace(f);
   }
