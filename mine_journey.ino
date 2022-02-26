@@ -10,7 +10,7 @@
 #define NO_PARENT 6
 #define MASTER 7
 #define NORTH_COLOR GREEN
-#define READY_GREEN makeColorRGB(0, 225, 25) //TODO: Fix this. It's gross.
+#define READY_GREEN makeColorRGB(0, 140, 0)
 #define EMPTY_COLOR dim(WHITE, 255/4)
 #define MINE_INDICATOR_COLOR YELLOW
 #define MAP_HEIGHT 16
@@ -250,7 +250,7 @@ void readyLoop() {
   location[1] = 0;
   //If master, tell all to begin game by sending location data
   if (parentFace == MASTER) {
-    location[0] = 8;
+    location[0] = MAP_WIDTH/2;
     location[1] = 0;
     setValueSentOnAllFaces(PLAYING);
     state = CONNECTED;
