@@ -101,12 +101,23 @@ void loop() {
 
 void createMap() {
   //Randomly place out mines in other spaces
-  for (byte i = 0; i < MINE_MAX; ++i) {
+  bool resetting;
+  for (byte i = 0; i < MINE_MAX; i++) {
+    resetting = false;
     mineMap[i][0] = random(MAP_WIDTH - 1);
     mineMap[i][1] = random(MAP_HEIGHT - 1);
-    if (((mineMap[i][0] == (MAP_WIDTH / 2)) && ((mineMap[i][1] == 0) || (mineMap[i][1] == 1))) || 
-          (mineMap[i][1] == 0 && ((mineMap[i][0] == (MAP_WIDTH/2) + 1)|| (mineMap[i][0] == (MAP_WIDTH/2) - 1)))){ //Mine at the start space, try again.
-      --i;
+    for (byte x = (MAP_WIDTH / 2) - 1; x < (MAP_WIDTH / 2) + 2; x++) {
+      for (byte y = 0; y < 2; y++) {
+        if (mineMap[i][0] == x && mineMap[i][1] == y) {
+          --i;
+          resetting = true;
+        }
+      }
+    }
+    for (byte j = 0; j < i; j++) {
+      if (!resetting && mineMap[j][0] == mineMap[i][0] && mineMap[j][1] == mineMap[i][1]) {
+        --i;
+      }
     }
   }
 }
@@ -177,8 +188,6 @@ void receivingLoop() {
 }
 
 void readyLoop() {
-  location[0] = -1;
-  location[1] = -1;
   //If master, tell all to begin game by sending location data
   if (parentFace == MASTER) {
     location[0] = MAP_WIDTH/2;
@@ -235,6 +244,8 @@ void disconnectedLoop() {
   mineCount = 0;
   isEdge = false;
   flashColorOnFace(CYAN, 6);
+  location[0] = -1;
+  location[1] = -1;
   
   if (getLocation()) {
     //Found a face transmitting a location!
