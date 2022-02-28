@@ -18,7 +18,7 @@
 #define MINE_MAX 45
 
 ////data////
-enum Data {SETUP = 50, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY, WON, LOST, EMPTY, MINE, END, START, PLAYING};
+enum Data {SETUP = 50, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY};
 static byte state = SETUP;
 static Timer endTimer;
 
@@ -101,24 +101,24 @@ void loop() {
 
 void createMap() {
   //Randomly place out mines in other spaces
-  bool resetting;
   for (byte i = 0; i < MINE_MAX; i++) {
-    resetting = false;
-    mineMap[i][0] = random(MAP_WIDTH - 1);
-    mineMap[i][1] = random(MAP_HEIGHT - 1);
-    for (byte x = (MAP_WIDTH / 2) - 1; x < (MAP_WIDTH / 2) + 2; x++) {
-      for (byte y = 0; y < 2; y++) {
-        if (mineMap[i][0] == x && mineMap[i][1] == y) {
-          --i;
-          resetting = true;
+    bool duplicate = false;
+    byte randX;
+    byte randY;
+    do {
+      bool duplicate = false;
+      randX = random(MAP_WIDTH - 1);
+      randY = random(MAP_HEIGHT - 1);
+      for (byte x = (MAP_WIDTH / 2) - 1; x < (MAP_WIDTH / 2) + 2; x++) {
+        for (byte y = 0; y < 2; y++) {
+          if (mineMap[i][0] == x && mineMap[i][1] == y) {
+            duplicate = true;
+          }
         }
       }
-    }
-    for (byte j = 0; j < i; j++) {
-      if (!resetting && mineMap[j][0] == mineMap[i][0] && mineMap[j][1] == mineMap[i][1]) {
-        --i;
-      }
-    }
+    } while (!duplicate && randX >= MAP_WIDTH / 2 - 1 && randX < MAP_WIDTH / 2 + 2 && randY <= 1);
+    mineMap[i][0] = randX;
+    mineMap[i][1] = randY;
   }
 }
 
@@ -192,17 +192,16 @@ void readyLoop() {
   if (parentFace == MASTER) {
     location[0] = MAP_WIDTH/2;
     location[1] = 0;
-    setValueSentOnAllFaces(PLAYING);
     state = CONNECTED;
     setColor(EMPTY_COLOR);
     setColorOnFace(BLUE, north);
+    sendLocationData();
     return;
   }
   //Otherwise listen for start signal
   if (getLocation()) {
     setColor(WHITE);
     state = DISCONNECTED;
-    setValueSentOnAllFaces(PLAYING);
     sendLocationData();
   }
 
@@ -250,9 +249,9 @@ void disconnectedLoop() {
   if (getLocation()) {
     //Found a face transmitting a location!
     state = CONNECTED;
-    byte space = EMPTY;
+    byte space = 0;
     if (location[1] > MAP_HEIGHT) {
-      space = END;
+      space = 1;
     }
     else if (location[0] < 0 || location[0] >= MAP_WIDTH || location[1] < 0) {
       setColor(OFF);
@@ -263,11 +262,11 @@ void disconnectedLoop() {
     else {
       for (byte i = 0; i < MINE_MAX; ++i) {
         if (mineMap[i][0] == location[0] && mineMap[i][1] == location[1]) {
-          space = MINE;
+          space = 2;
         }
       }
     }
-    if (space == EMPTY) {
+    if (space == 0) {
       setColor(EMPTY_COLOR);
       char rowModifier = 1;
       if ((location[0] % 2) == 0) { //Even column
@@ -294,10 +293,10 @@ void disconnectedLoop() {
         }
       }
     }
-    else if (space == END) {
+    else if (space == 1) {
       gameEnd(true);
     }
-    else if (space == MINE) {
+    else if (space == 2) {
       gameEnd(false);
     }
   }
@@ -340,7 +339,7 @@ void connectedLoop() {
 
 void gameEndLoop(bool won) {
   //Reset data
-  location[0] = location[1] = 0;
+  location[0] = location[1] = -1;
   currentMine = 0;
   sendingFace = 0;
   mineCount = 0;
@@ -354,8 +353,9 @@ void gameEndLoop(bool won) {
   
   //Check if timer has expired
   if (endTimer.isExpired()) {
-    setColor(BLUE);
+    setColor(MAGENTA);
     state = SETUP;
+    setValueSentOnAllFaces(state);
   }
 
   //Flash lights
