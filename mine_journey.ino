@@ -353,7 +353,6 @@ void gameEndLoop(bool won) {
   
   //Check if timer has expired
   if (endTimer.isExpired()) {
-    setColor(MAGENTA);
     state = SETUP;
     setValueSentOnAllFaces(state);
   }
