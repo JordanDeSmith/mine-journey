@@ -34,10 +34,9 @@ static byte mineCount = 0;
 static byte mineIndicatorFace = 0;
 static Timer spinTimer;
 bool isEdge = false;
+bool isMarker = false;
 static char location[2];
-static byte mineMap[MINE_MAX][2];
-
-
+static char mineMap[MINE_MAX][2];
 
 
 
@@ -80,16 +79,22 @@ void loop() {
     gameEnd(false);
   }
 
-  if (mineCount > 0 && spinTimer.isExpired()) {
+  if (isMarker) {
+    flashColorOnFace(ORANGE, 6);
+  }
+  else if (mineCount > 0 && spinTimer.isExpired()) {
     spinTimer.set(SPIN_TIMER_LENGTH);
-    setColor(EMPTY_COLOR);
     for (byte i = 0; i < mineCount; i++) {
       setColorOnFace(MINE_INDICATOR_COLOR, (mineIndicatorFace + i) % FACE_COUNT);
+    }
+    for (byte i = mineCount; i < FACE_COUNT; i++) {
+      setColorOnFace(EMPTY_COLOR, (mineIndicatorFace + i) % FACE_COUNT);
     }
     mineIndicatorFace = (mineIndicatorFace + 1) % 6;
   }
   
   buttonDoubleClicked(); //Resets double click flag, just in case
+  buttonPressed();
 }
 
 
@@ -106,17 +111,16 @@ void createMap() {
     byte randX;
     byte randY;
     do {
-      bool duplicate = false;
+      duplicate = false;
       randX = random(MAP_WIDTH - 1);
       randY = random(MAP_HEIGHT - 1);
-      for (byte x = (MAP_WIDTH / 2) - 1; x < (MAP_WIDTH / 2) + 2; x++) {
-        for (byte y = 0; y < 2; y++) {
-          if (mineMap[i][0] == x && mineMap[i][1] == y) {
+      for (byte j = 0; j < i; j++) {
+        if (mineMap[j][0] == randX && mineMap[j][1] == randY) {
             duplicate = true;
-          }
+            break;
         }
       }
-    } while (!duplicate && randX >= MAP_WIDTH / 2 - 1 && randX < MAP_WIDTH / 2 + 2 && randY <= 1);
+    } while (duplicate || (randX >= MAP_WIDTH / 2 - 1 && randX < MAP_WIDTH / 2 + 2 && randY <= 1));
     mineMap[i][0] = randX;
     mineMap[i][1] = randY;
   }
@@ -245,11 +249,21 @@ void disconnectedLoop() {
   flashColorOnFace(CYAN, 6);
   location[0] = -1;
   location[1] = -1;
+
+  if (buttonDoubleClicked()) {
+    isMarker = !isMarker;
+  }
   
   if (getLocation()) {
     //Found a face transmitting a location!
     state = CONNECTED;
     byte space = 0;
+    if (isMarker) {
+      if (location[0] < 0 || location[0] >= MAP_WIDTH || location[1] < 0) {
+        isEdge = true;
+      }
+      return;
+    }
     if (location[1] > MAP_HEIGHT) {
       space = 1;
     }
@@ -279,16 +293,16 @@ void disconnectedLoop() {
         else if (location[0] == mineMap[i][0] && (location[1] + 1) == mineMap[i][1]) {//location[1] + 1 < MAP_HEIGHT && mineMap[location[1] + 1][location[0]] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == (mineMap[i][0] - 1) && location[1] == mineMap[i][1]) {//location[0] - 1 >= 0 && mineMap[location[1]][location[0] - 1] == MINE) {
+        else if ((location[0] - 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {//location[0] - 1 >= 0 && mineMap[location[1]][location[0] - 1] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == (mineMap[i][0] + 1) && location[1] == mineMap[i][1]) {//location[0] + 1 < MAP_HEIGHT && mineMap[location[1]][location[0] + 1] == MINE) {
+        else if ((location[0] + 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {//location[0] + 1 < MAP_HEIGHT && mineMap[location[1]][location[0] + 1] == MINE) {
           ++mineCount;
         }
-        else if (location[0] == (mineMap[i][0] - 1) && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] - 1 >= 0) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] - 1] == MINE)) {
+        else if ((location[0] - 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] - 1 >= 0) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] - 1] == MINE)) {
           ++mineCount;
         }
-        else if (location[0] == (mineMap[i][0] + 1) && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
+        else if ((location[0] + 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
           ++mineCount;
         }
       }
@@ -345,6 +359,8 @@ void gameEndLoop(bool won) {
   mineCount = 0;
   mineIndicatorFace = 0;
   isSending = false;
+  isMarker = false;
+  isEdge = false;
   parentFace = NO_PARENT;
   FOREACH_FACE(f) {
     markDatagramReadOnFace(f);
