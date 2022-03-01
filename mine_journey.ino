@@ -79,8 +79,11 @@ void loop() {
     gameEnd(false);
   }
 
-  if (isMarker) {
-    flashColorOnFace(ORANGE, 6);
+  if (isMarker && spinTimer.isExpired()) {
+    spinTimer.set(SPIN_TIMER_LENGTH);
+    setColorOnFace(OFF, mineIndicatorFace);
+    mineIndicatorFace = (mineIndicatorFace + 1) % 6;
+    setColorOnFace(RED, mineIndicatorFace);
   }
   else if (mineCount > 0 && spinTimer.isExpired()) {
     spinTimer.set(SPIN_TIMER_LENGTH);
@@ -243,17 +246,21 @@ void standbyLoop() {
 ////////////////////
 
 void disconnectedLoop() {
-  //Check if we have a location signal
   mineCount = 0;
   isEdge = false;
-  flashColorOnFace(CYAN, 6);
   location[0] = -1;
   location[1] = -1;
 
   if (buttonDoubleClicked()) {
     isMarker = !isMarker;
+    setColor(OFF);
   }
   
+  if (!isMarker) {
+    flashColorOnFace(CYAN, 6);
+  }
+
+  //Check if we have a location signal
   if (getLocation()) {
     //Found a face transmitting a location!
     state = CONNECTED;
