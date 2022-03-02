@@ -216,16 +216,28 @@ void readyLoop() {
 
 void standbyLoop() {
   //Wait for starting press
+  setValueSentOnAllFaces(SETUP);
   bool canStart = false;
   if (!isAlone()) {   //Don't want to start if it's alone, or it won't share the map with anyone
+    byte connectionCount = 0;
+    byte connectionFace = 6;
     FOREACH_FACE(f) {
       if (isValueReceivedOnFaceExpired(f)) {
-        if (isValueReceivedOnFaceExpired((f+1)%6) && isValueReceivedOnFaceExpired((f+2)%6)) { //TODO: If there's only 1 connected side, should start on opposite
+        if (isValueReceivedOnFaceExpired((f+1)%6) && isValueReceivedOnFaceExpired((f+2)%6)) {
           canStart = true;
           north = (f + 1) % 6;
-          break;
         }
       }
+      else {
+        ++connectionCount;
+        connectionFace = f;
+      }
+    }
+    if (connectionCount == 1) {
+      north = (connectionFace + 9) % 6;
+    }
+    else if (connectionCount == 2) {
+      canStart = false;
     }
   }
   if (canStart) {
