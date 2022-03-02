@@ -14,7 +14,7 @@
 #define EMPTY_COLOR dim(WHITE, 255/4)
 #define MINE_INDICATOR_COLOR YELLOW
 #define MAP_HEIGHT 20
-#define MAP_WIDTH 10
+#define MAP_WIDTH 12
 #define MINE_MAX 45
 
 ////data////
@@ -31,7 +31,7 @@ static byte currentMine = 0;
 ////Map////
 static byte north = 0;
 static byte mineCount = 0;
-static byte mineIndicatorFace = 0;
+static byte indicatorFace = 0;
 static Timer spinTimer;
 bool isEdge = false;
 bool isMarker = false;
@@ -81,19 +81,19 @@ void loop() {
 
   if (isMarker && spinTimer.isExpired()) {
     spinTimer.set(SPIN_TIMER_LENGTH);
-    setColorOnFace(OFF, mineIndicatorFace);
-    mineIndicatorFace = (mineIndicatorFace + 1) % 6;
-    setColorOnFace(RED, mineIndicatorFace);
+    setColorOnFace(OFF, indicatorFace);
+    indicatorFace = (indicatorFace + 1) % 6;
+    setColorOnFace(RED, indicatorFace);
   }
   else if (mineCount > 0 && spinTimer.isExpired()) {
     spinTimer.set(SPIN_TIMER_LENGTH);
     for (byte i = 0; i < mineCount; i++) {
-      setColorOnFace(MINE_INDICATOR_COLOR, (mineIndicatorFace + i) % FACE_COUNT);
+      setColorOnFace(MINE_INDICATOR_COLOR, (indicatorFace + i) % FACE_COUNT);
     }
     for (byte i = mineCount; i < FACE_COUNT; i++) {
-      setColorOnFace(EMPTY_COLOR, (mineIndicatorFace + i) % FACE_COUNT);
+      setColorOnFace(EMPTY_COLOR, (indicatorFace + i) % FACE_COUNT);
     }
-    mineIndicatorFace = (mineIndicatorFace + 1) % 6;
+    indicatorFace = (indicatorFace + 1) % 6;
   }
   
   buttonDoubleClicked(); //Resets double click flag, just in case
@@ -201,7 +201,6 @@ void readyLoop() {
     location[1] = 0;
     state = CONNECTED;
     setColor(EMPTY_COLOR);
-    setColorOnFace(BLUE, north);
     sendLocationData();
     return;
   }
@@ -216,16 +215,40 @@ void readyLoop() {
 }
 
 void standbyLoop() {
-  //TODO: Only start if this blink has 3 consecutive open sides. Make north the middle of the three. 
   //Wait for starting press
-  if (buttonDoubleClicked()) {
-    createMap();
-    state = SENDING;
-    parentFace = MASTER;
-    setValueSentOnAllFaces(SENDING_TO_OTHER);
-    setColor(OFF);
-    return;
+  bool canStart = false;
+  if (!isAlone()) {   //Don't want to start if it's alone, or it won't share the map with anyone
+    FOREACH_FACE(f) {
+      if (isValueReceivedOnFaceExpired(f)) {
+        if (isValueReceivedOnFaceExpired((f+1)%6) && isValueReceivedOnFaceExpired((f+2)%6)) { //TODO: If there's only 1 connected side, should start on opposite
+          canStart = true;
+          north = (f + 1) % 6;
+          break;
+        }
+      }
+    }
   }
+  if (canStart) {
+    if (spinTimer.isExpired()) {
+      spinTimer.set(SPIN_TIMER_LENGTH);
+      setColor(BLUE);
+      indicatorFace = random(5);
+      setColorOnFace(WHITE, indicatorFace);
+    }
+  
+    if (buttonDoubleClicked()) {
+      createMap();
+      state = SENDING;
+      parentFace = MASTER;
+      setValueSentOnAllFaces(SENDING_TO_OTHER);
+      setColor(OFF);
+      return;
+    }
+  }
+  else {
+    flashColorOnFace(BLUE, 6);
+  }
+  
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) == SENDING) {
       parentFace = f;
@@ -234,10 +257,6 @@ void standbyLoop() {
       return;
     }
   }
-
-  //Set lights
-  flashColorOnFace(BLUE, 6);
-  setColorOnFace(GREEN, north); //For debugging
 }
 
 
@@ -364,7 +383,7 @@ void gameEndLoop(bool won) {
   currentMine = 0;
   sendingFace = 0;
   mineCount = 0;
-  mineIndicatorFace = 0;
+  indicatorFace = 0;
   isSending = false;
   isMarker = false;
   isEdge = false;
