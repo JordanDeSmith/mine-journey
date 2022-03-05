@@ -242,12 +242,7 @@ void standbyLoop() {
     }
   }
   if (canStart) {
-    if (spinTimer.isExpired()) {
-      spinTimer.set(SPIN_TIMER_LENGTH);
-      setColor(BLUE);
-      indicatorFace = random(5);
-      setColorOnFace(WHITE, indicatorFace);
-    }
+    setColor(WHITE);
   
     if (buttonPressed()) {
       createMap();
