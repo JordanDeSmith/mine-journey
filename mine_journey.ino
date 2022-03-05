@@ -18,8 +18,9 @@
 #define MINE_MAX 45
 
 ////data////
-enum Data {SETUP = 50, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY};
+enum Data {SETUP = 50, RESOLVING, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY};
 byte state = SETUP;
+byte subState = 60;
 static Timer endTimer;
 
 ////Data for map propogation////
@@ -37,11 +38,14 @@ bool isEdge = false;
 bool isMarker = false;
 char location[2];
 char mineMap[MINE_MAX][2];
+byte difficulty = 1;
+byte totalMines = 20;
 
 
 
 ////Setup function////
 void setup() {
+  setValueSentOnAllFaces(SETUP);
   randomize(); //Seed random generator
 }
 
@@ -49,7 +53,6 @@ void setup() {
 void loop() {
   switch(state) {
     case SETUP:
-      setValueSentOnAllFaces(SETUP);
       standbyLoop();
       break;
     case RECEIVING:
@@ -109,7 +112,8 @@ void loop() {
 
 void createMap() {
   //Randomly place out mines in other spaces
-  for (byte i = 0; i < MINE_MAX; i++) {
+  setValueSentOnAllFaces(state);
+  for (byte i = 0; i < totalMines; i++) {
     bool duplicate = false;
     byte randX;
     byte randY;
@@ -142,7 +146,7 @@ void sendingLoop() {
   }
 
   if (isSending) {
-    if (currentMine < MINE_MAX) {
+    if (currentMine < totalMines) {
       if (!isValueReceivedOnFaceExpired(sendingFace) && getLastValueReceivedOnFace(sendingFace) == currentMine) {
         sendDatagramOnFace(&mineMap[currentMine], 2, sendingFace);
         ++currentMine;
@@ -163,7 +167,7 @@ void sendingLoop() {
     state = READY;
     setValueSentOnAllFaces(state);
   }
-  setColor(dim(READY_GREEN, map(currentMine, 0, MINE_MAX, 0, 255)));
+  setColor(dim(READY_GREEN, map(currentMine, 0, totalMines, 0, 255)));
   flashColorOnFace(BLUE, sendingFace);
 }
 
@@ -185,11 +189,11 @@ void receivingLoop() {
       return;
     }
   }
-  if (currentMine >= MINE_MAX) {
+  if (currentMine >= totalMines) {
     state = SENDING;
     currentMine = 0;
   }
-  setColor(dim(BLUE, map(currentMine, 0, MINE_MAX, 0, 255)));
+  setColor(dim(BLUE, map(currentMine, 0, totalMines, 0, 255)));
   flashColorOnFace(BLUE, parentFace);
 }
 
@@ -214,7 +218,6 @@ void readyLoop() {
 
 void standbyLoop() {
   //Wait for starting press
-  setValueSentOnAllFaces(SETUP);
   bool canStart = false;
   if (!isAlone()) {   //Don't want to start if it's alone, or it won't share the map with anyone
     byte connectionCount = 0;
@@ -246,7 +249,7 @@ void standbyLoop() {
       setColorOnFace(WHITE, indicatorFace);
     }
   
-    if (buttonDoubleClicked()) {
+    if (buttonPressed()) {
       createMap();
       state = SENDING;
       parentFace = MASTER;
@@ -258,12 +261,77 @@ void standbyLoop() {
   else {
     flashColorOnFace(BLUE, 6);
   }
+
+  if (buttonDoubleClicked()) {
+    if (++difficulty > 3) {
+      difficulty = 1;
+    }
+    subState = 61;
+    setValueSentOnAllFaces(difficulty);
+  }
+
+  if (subState == 60) {
+    setValueSentOnAllFaces(state);
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        if (getLastValueReceivedOnFace(f) >= 1 && getLastValueReceivedOnFace(f) <= 3) {
+          difficulty = getLastValueReceivedOnFace(f);
+          setValueSentOnAllFaces(difficulty);
+          subState = 61;
+        }
+      }
+    }
+  }
+  if (subState == 61) {
+    bool neighborsReady = true;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) == SETUP) {
+        neighborsReady = false;
+        break;
+      }
+    }
+    if (neighborsReady) {
+      setValueSentOnAllFaces(RESOLVING);
+      subState = 62;
+    }
+  }
+  else if (subState == 62) {
+    bool neighborsReady = true;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != SETUP && getLastValueReceivedOnFace(f) != RESOLVING) {
+        neighborsReady = false;
+        break;
+      }
+    }
+    if (neighborsReady) {
+        subState = 60;
+        setValueSentOnAllFaces(SETUP);
+    }
+  }
+  
+  switch(difficulty) {
+    case 1:
+      totalMines = 20;
+      flashColorOnFace(ORANGE, indicatorFace);
+      break;
+    case 2:
+      totalMines = 32;
+      flashColorOnFace(ORANGE, indicatorFace);
+      flashColorOnFace(ORANGE, (indicatorFace + 1) % FACE_COUNT);
+      break;
+    case 3:
+      totalMines = MINE_MAX;
+      flashColorOnFace(ORANGE, indicatorFace);
+      flashColorOnFace(ORANGE, (indicatorFace + 1) % FACE_COUNT);
+      flashColorOnFace(ORANGE, (indicatorFace + 2) % FACE_COUNT);
+      break;
+  }
   
   FOREACH_FACE(f) {
     if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) == SENDING) {
       parentFace = f;
       state = RECEIVING;
-      setValueSentOnAllFaces(currentMine);
+      setValueSentOnAllFaces(state);
       return;
     }
   }
@@ -310,7 +378,7 @@ void disconnectedLoop() {
       return;
     }
     else {
-      for (byte i = 0; i < MINE_MAX; ++i) {
+      for (byte i = 0; i < totalMines; ++i) {
         if (mineMap[i][0] == location[0] && mineMap[i][1] == location[1]) {
           space = 2;
         }
@@ -322,7 +390,7 @@ void disconnectedLoop() {
       if ((location[0] % 2) == 0) { //Even column
         rowModifier = -1;
       }
-      for (byte i = 0; i < MINE_MAX; ++i) {
+      for (byte i = 0; i < totalMines; ++i) {
         if (location[0] == mineMap[i][0] && (location[1] - 1) == mineMap[i][1]) {//location[1] - 1 >= 0 && mineMap[location[1] - 1][location[0]] == MINE) {
           ++mineCount;
         }
@@ -356,13 +424,6 @@ void connectedLoop() {
   if (buttonPressed()) {
     setColorOnFace(NORTH_COLOR, north);
   }
-  /*if (buttonReleased()) {
-    Color revertColor = EMPTY_COLOR;
-    if (isNorthYellow) {
-      revertColor = YELLOW;
-    }
-    setColorOnFace(revertColor, north);
-  }*/
   
   //Listen for end signal
   FOREACH_FACE(f) {
