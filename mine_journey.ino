@@ -4,7 +4,7 @@
  * 
 */
 ////Constants////
-#define FLASH_LENGTH 2000
+#define FLASH_LENGTH 8
 #define END_TIMER_LENGTH 2000
 #define SPIN_TIMER_LENGTH 1000
 #define NO_PARENT 6
@@ -19,24 +19,24 @@
 
 ////data////
 enum Data {SETUP = 50, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY};
-static byte state = SETUP;
+byte state = SETUP;
 static Timer endTimer;
 
 ////Data for map propogation////
-static byte parentFace = NO_PARENT;
-static byte sendingFace = 0;
-static bool isSending = false;
-static byte currentMine = 0;
+byte parentFace = NO_PARENT;
+byte sendingFace = 0;
+bool isSending = false;
+byte currentMine = 0;
 
 ////Map////
-static byte north = 0;
-static byte mineCount = 0;
-static byte indicatorFace = 0;
+byte north = 0;
+byte mineCount = 0;
+byte indicatorFace = 0;
 static Timer spinTimer;
 bool isEdge = false;
 bool isMarker = false;
-static char location[2];
-static char mineMap[MINE_MAX][2];
+char location[2];
+char mineMap[MINE_MAX][2];
 
 
 
@@ -147,8 +147,6 @@ void sendingLoop() {
         sendDatagramOnFace(&mineMap[currentMine], 2, sendingFace);
         ++currentMine;
       }
-      setColor(dim(GREEN, map(currentMine, 0, MINE_MAX, 0, 255)));
-      flashColorOnFace(BLUE, sendingFace);
     }
     else {
       if (!isValueReceivedOnFaceExpired(sendingFace) && getLastValueReceivedOnFace(sendingFace) == READY) {
@@ -164,8 +162,9 @@ void sendingLoop() {
     }
     state = READY;
     setValueSentOnAllFaces(state);
-    flashColorOnFace(GREEN, 6);
   }
+  setColor(dim(READY_GREEN, map(currentMine, 0, MINE_MAX, 0, 255)));
+  flashColorOnFace(BLUE, sendingFace);
 }
 
 void receivingLoop() {
@@ -190,7 +189,7 @@ void receivingLoop() {
     state = SENDING;
     currentMine = 0;
   }
-  setColor(dim(RED, map(currentMine, 0, MINE_MAX, 0, 255)));
+  setColor(dim(BLUE, map(currentMine, 0, MINE_MAX, 0, 255)));
   flashColorOnFace(BLUE, parentFace);
 }
 
@@ -206,7 +205,6 @@ void readyLoop() {
   }
   //Otherwise listen for start signal
   if (getLocation()) {
-    setColor(WHITE);
     state = DISCONNECTED;
     sendLocationData();
   }
@@ -490,7 +488,7 @@ bool getLocation() {
 }
 
 void flashColorOnFace(Color color, byte f) {
-  byte dimness = sin8_C(map((millis() % FLASH_LENGTH), 0, FLASH_LENGTH, 0, 255));
+  byte dimness = map(sin8_C((millis() / FLASH_LENGTH)), 0, 255, 127, 255);
   if (f >= 6) {
     setColor(dim(color, dimness));
   }
