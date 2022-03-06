@@ -81,7 +81,7 @@ void loop() {
     gameEnd(false);
   }
 
-  //Listen for end signal
+  //Listen for end signal, unless we're already sending end
   if (subState >= 0) {
     FOREACH_FACE(f) {
       if (!isValueReceivedOnFaceExpired(f)) {
@@ -403,22 +403,22 @@ void disconnectedLoop() {
         rowModifier = -1;
       }
       for (byte i = 0; i < totalMines; ++i) {
-        if (location[0] == mineMap[i][0] && (location[1] - 1) == mineMap[i][1]) {//location[1] - 1 >= 0 && mineMap[location[1] - 1][location[0]] == MINE) {
+        if (location[0] == mineMap[i][0] && (location[1] - 1) == mineMap[i][1]) {
           ++mineCount;
         }
-        else if (location[0] == mineMap[i][0] && (location[1] + 1) == mineMap[i][1]) {//location[1] + 1 < MAP_HEIGHT && mineMap[location[1] + 1][location[0]] == MINE) {
+        else if (location[0] == mineMap[i][0] && (location[1] + 1) == mineMap[i][1]) {
           ++mineCount;
         }
-        else if ((location[0] - 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {//location[0] - 1 >= 0 && mineMap[location[1]][location[0] - 1] == MINE) {
+        else if ((location[0] - 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {
           ++mineCount;
         }
-        else if ((location[0] + 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {//location[0] + 1 < MAP_HEIGHT && mineMap[location[1]][location[0] + 1] == MINE) {
+        else if ((location[0] + 1) == mineMap[i][0] && location[1] == mineMap[i][1]) {
           ++mineCount;
         }
-        else if ((location[0] - 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] - 1 >= 0) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] - 1] == MINE)) {
+        else if ((location[0] - 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {
           ++mineCount;
         }
-        else if ((location[0] + 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {//(location[0] + 1 < MAP_WIDTH) && (0 <= (location[1] + rowModifier)) && ((location[1] + rowModifier) < MAP_HEIGHT) && (mineMap[location[1] + rowModifier][location[0] + 1] == MINE)) {
+        else if ((location[0] + 1) == mineMap[i][0] && (location[1] + rowModifier) == mineMap[i][1]) {
           ++mineCount;
         }
       }
@@ -453,7 +453,8 @@ void gameEndLoop(bool won) {
   if (subState == -1) {
     bool neighborsReady = true;
     FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != VICTORY && getLastValueReceivedOnFace(f) != GAME_OVER && getLastValueReceivedOnFace(f) != RESOLVING) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != VICTORY 
+          && getLastValueReceivedOnFace(f) != GAME_OVER && getLastValueReceivedOnFace(f) != RESOLVING) {
         neighborsReady = false;
         break;
       }
@@ -466,7 +467,8 @@ void gameEndLoop(bool won) {
   else if (subState == -2 && endTimer.isExpired()) {
     bool neighborsReady = true;
     FOREACH_FACE(f) {
-      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != SETUP && getLastValueReceivedOnFace(f) != RESOLVING) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != SETUP 
+          && getLastValueReceivedOnFace(f) != RESOLVING) {
         neighborsReady = false;
         break;
       }
