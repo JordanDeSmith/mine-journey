@@ -27,7 +27,6 @@ static Timer endTimer;
 byte parentFace = NO_PARENT;
 byte sendingFace = 0;
 bool isSending = false;
-byte currentMine = 0;
 
 ////Map////
 byte north = 0;
@@ -80,6 +79,20 @@ void loop() {
 
   if (buttonMultiClicked()) {
     gameEnd(false);
+  }
+
+  //Listen for end signal
+  if (subState >= 0) {
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f)) {
+        if (getLastValueReceivedOnFace(f) == GAME_OVER) {
+          gameEnd(false);
+        }
+        else if (getLastValueReceivedOnFace(f) == VICTORY) {
+          gameEnd(true);
+        }
+      }
+    }
   }
 
   if (isMarker && spinTimer.isExpired()) {
@@ -146,15 +159,15 @@ void sendingLoop() {
   }
 
   if (isSending) {
-    if (currentMine < totalMines) {
-      if (!isValueReceivedOnFaceExpired(sendingFace) && getLastValueReceivedOnFace(sendingFace) == currentMine) {
-        sendDatagramOnFace(&mineMap[currentMine], 2, sendingFace);
-        ++currentMine;
+    if (subState < totalMines) {
+      if (!isValueReceivedOnFaceExpired(sendingFace) && getLastValueReceivedOnFace(sendingFace) == subState) {
+        sendDatagramOnFace(&mineMap[subState], 2, sendingFace);
+        ++subState;
       }
     }
     else {
       if (!isValueReceivedOnFaceExpired(sendingFace) && getLastValueReceivedOnFace(sendingFace) == READY) {
-        currentMine = 0;
+        subState = 0;
         isSending = false;
       }
     }
@@ -167,33 +180,33 @@ void sendingLoop() {
     state = READY;
     setValueSentOnAllFaces(state);
   }
-  setColor(dim(READY_GREEN, map(currentMine, 0, totalMines, 0, 255)));
+  setColor(dim(READY_GREEN, map(subState, 0, totalMines, 0, 255)));
   flashColorOnFace(BLUE, sendingFace);
 }
 
 void receivingLoop() {
-  setValueSentOnFace(currentMine, parentFace);
+  setValueSentOnFace(subState, parentFace);
   if (isDatagramReadyOnFace(parentFace)) {
     byte *datagram = getDatagramOnFace(parentFace);
     byte dataLength = getDatagramLengthOnFace(parentFace);
     if (dataLength == 2) {
       markDatagramReadOnFace(parentFace);
       for (byte i=0; i < dataLength; i++) {
-        mineMap[currentMine][i] = *(datagram + i);
+        mineMap[subState][i] = *(datagram + i);
       }
-      ++currentMine;
-      setValueSentOnFace(currentMine, parentFace);
+      ++subState;
+      setValueSentOnFace(subState, parentFace);
     }
     else {
       setColor(ORANGE);
       return;
     }
   }
-  if (currentMine >= totalMines) {
+  if (subState >= totalMines) {
     state = SENDING;
-    currentMine = 0;
+    subState = 0;
   }
-  setColor(dim(BLUE, map(currentMine, 0, totalMines, 0, 255)));
+  setColor(dim(BLUE, map(subState, 0, totalMines, 0, 255)));
   flashColorOnFace(BLUE, parentFace);
 }
 
@@ -243,6 +256,8 @@ void standbyLoop() {
   }
   if (canStart) {
     setColor(WHITE);
+    indicatorFace = (north + 2) % 6;
+    setColorOnFace(NORTH_COLOR, north);
   
     if (buttonPressed()) {
       createMap();
@@ -250,6 +265,7 @@ void standbyLoop() {
       parentFace = MASTER;
       setValueSentOnAllFaces(SENDING_TO_OTHER);
       setColor(OFF);
+      subState = 0;
       return;
     }
   }
@@ -327,6 +343,7 @@ void standbyLoop() {
       parentFace = f;
       state = RECEIVING;
       setValueSentOnAllFaces(state);
+      subState = 0;
       return;
     }
   }
@@ -419,18 +436,7 @@ void connectedLoop() {
   if (buttonPressed()) {
     setColorOnFace(NORTH_COLOR, north);
   }
-  
-  //Listen for end signal
-  FOREACH_FACE(f) {
-    if (!isValueReceivedOnFaceExpired(f)) {
-      if (getLastValueReceivedOnFace(f) == GAME_OVER) {
-        gameEnd(false);
-      }
-      else if (getLastValueReceivedOnFace(f) == VICTORY) {
-        gameEnd(true);
-      }
-    }
-  }
+
   //Check if we've been disconnected (alone)
   if (isAlone()) {
     FOREACH_FACE(f) {
@@ -444,25 +450,35 @@ void connectedLoop() {
 }
 
 void gameEndLoop(bool won) {
-  //Reset data
-  location[0] = location[1] = -1;
-  currentMine = 0;
-  sendingFace = 0;
-  mineCount = 0;
-  indicatorFace = 0;
-  isSending = false;
-  isMarker = false;
-  isEdge = false;
-  parentFace = NO_PARENT;
-  FOREACH_FACE(f) {
-    markDatagramReadOnFace(f);
+  if (subState == -1) {
+    bool neighborsReady = true;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != VICTORY && getLastValueReceivedOnFace(f) != GAME_OVER && getLastValueReceivedOnFace(f) != RESOLVING) {
+        neighborsReady = false;
+        break;
+      }
+    }
+    if (neighborsReady) {
+      setValueSentOnAllFaces(RESOLVING);
+      subState = -2;
+    }
   }
-
-  
-  //Check if timer has expired
-  if (endTimer.isExpired()) {
-    state = SETUP;
-    setValueSentOnAllFaces(state);
+  else if (subState == -2 && endTimer.isExpired()) {
+    bool neighborsReady = true;
+    FOREACH_FACE(f) {
+      if (!isValueReceivedOnFaceExpired(f) && getLastValueReceivedOnFace(f) != SETUP && getLastValueReceivedOnFace(f) != RESOLVING) {
+        neighborsReady = false;
+        break;
+      }
+    }
+    if (neighborsReady) {
+      subState = 60;
+      FOREACH_FACE(f) {
+        markDatagramReadOnFace(f);
+      }
+      state = SETUP;
+      setValueSentOnAllFaces(state);
+    }
   }
 
   //Flash lights
@@ -554,6 +570,17 @@ void flashColorOnFace(Color color, byte f) {
 }
 
 void gameEnd(bool won) {
+  //Reset data
+  location[0] = location[1] = -1;
+  sendingFace = 0;
+  mineCount = 0;
+  indicatorFace = 0;
+  isSending = false;
+  isMarker = false;
+  isEdge = false;
+  parentFace = NO_PARENT;
+  subState = -1;
+  
   if (won) {
     state = VICTORY;
   }
