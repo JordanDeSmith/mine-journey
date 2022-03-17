@@ -20,7 +20,7 @@
 ////data////
 enum Data {SETUP = 50, RESOLVING, SENDING, SENDING_TO_OTHER, RECEIVING, READY, CONNECTED, DISCONNECTED, GAME_OVER, VICTORY};
 byte state = SETUP;
-byte subState = 60;
+int subState = 60;
 static Timer endTimer;
 
 ////Data for map propogation////
